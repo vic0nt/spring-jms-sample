@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:jms="http://www.springframework.org/schema/jms" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<context:property-placeholder location="classpath:settings.properties,
+		classpath:message.properties, classpath:conf-settings.properties,
+		classpath:conf-message.properties" ignore-unresolvable="true"/>
+
+	<context:component-scan base-package="common" />
+
+	<bean id="mqClientConnectionFactory" class="com.ibm.mq.jms.MQQueueConnectionFactory"
+		  p:connectionNameList="${mq.connectionNameList}"
+		  p:clientReconnectTimeout="100" p:CCSID="${mq.ccid}" p:channel="${mq.channel}">
+		<property name="transportType">
+			<util:constant static-field="com.ibm.msg.client.wmq.WMQConstants.WMQ_CM_CLIENT" />
+		</property>
+		<property name="clientReconnectOptions">
+			<util:constant
+				static-field="com.ibm.msg.client.wmq.WMQConstants.WMQ_CLIENT_RECONNECT" />
+		</property>
+	</bean>
+
+	<bean id="jmsClientQueueConnectionFactory"
+		class="org.springframework.jms.connection.UserCredentialsConnectionFactoryAdapter">
+		<property name="targetConnectionFactory" ref="mqClientConnectionFactory" />
+	</bean>
+
+	<bean id="mqClient" class="org.springframework.jms.core.JmsTemplate"
+		p:connectionFactory-ref="jmsClientQueueConnectionFactory"
+		p:destinationResolver-ref="jmsDestinationResolver" p:receiveTimeout="10000"
+		p:defaultDestination-ref="sendDestination"
+		p:sessionTransacted="true">
+	</bean>
+
+	<bean id="jmsDestinationResolver"
+		class="org.springframework.jms.support.destination.DynamicDestinationResolver" />
+
+	<bean name="messageProducer" class="common.SimpleMessageProducer"/>
+
+	<bean id="sendDestination" class="com.ibm.mq.jms.MQQueue">
+	  <property name="baseQueueName" value="${mq.queueProducer}"/>
+	</bean>
+		
+	<bean id="queueListener" class="common.QueueListener" />
+
+	<jms:listener-container container-type="default"
+		connection-factory="jmsClientQueueConnectionFactory" concurrency="4"
+		acknowledge="transacted">
+		<jms:listener destination="${mq.queueConsumer}" ref="queueListener" />
+	</jms:listener-container>
+</beans>

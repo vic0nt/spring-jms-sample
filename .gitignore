@@ -1,0 +1,6 @@
+/target/
+*.iml
+.idea
+/src/main/resources/conf-message.properties
+/src/main/resources/conf-settings.properties
+/lib/
